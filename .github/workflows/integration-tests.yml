@@ -2,9 +2,9 @@ name: Integration Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
   workflow_dispatch:
 
 permissions:
@@ -71,6 +71,16 @@ jobs:
           path: '**/target/surefire-reports/TEST-*.xml'
           reporter: java-junit
           fail-on-error: false
+
+      - name: Verify Allure results
+        if: always()
+        run: |
+          echo "=== Allure results directory ==="
+          ls -la integration-tests/target/allure-results/ 2>&1 || echo "Directory not found"
+          echo "=== Result files ==="
+          find integration-tests/target/allure-results -name "*-result.json" 2>/dev/null | head -10 || echo "No result files"
+          echo "=== Container files ==="
+          find integration-tests/target/allure-results -name "*-container.json" 2>/dev/null | head -10 || echo "No container files"
 
       - name: Install Allure CLI
         if: always()
