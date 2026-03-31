@@ -1,3 +1,4 @@
 # Project exclude paths
 /app/target/
 /integration-tests/target/
+/.idea/

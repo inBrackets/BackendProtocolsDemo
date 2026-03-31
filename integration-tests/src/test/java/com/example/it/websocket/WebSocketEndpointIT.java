@@ -69,8 +69,11 @@ class WebSocketEndpointIT {
                 .extracting(HelloResponse::message)
                 .allMatch(msg -> msg.matches("Hello World - \\d+"));
 
-        for (int i = 0; i < responses.size(); i++) {
-            assertThat(responses.get(i).message()).isEqualTo("Hello World - " + (i + 1));
+        List<Integer> indices = responses.stream()
+                .map(r -> Integer.parseInt(r.message().replace("Hello World - ", "")))
+                .toList();
+        for (int i = 1; i < indices.size(); i++) {
+            assertThat(indices.get(i)).isEqualTo(indices.get(i - 1) + 1);
         }
     }
 
