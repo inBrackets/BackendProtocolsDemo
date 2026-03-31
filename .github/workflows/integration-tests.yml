@@ -1,0 +1,89 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: maven
+
+      - name: Build application
+        run: mvn -pl app clean compile -DskipTests -q
+
+      - name: Compile integration tests
+        run: mvn -pl integration-tests clean compile test-compile -DskipTests -q
+
+      - name: Start application
+        run: |
+          mvn -pl app spring-boot:run -DskipTests &
+          echo "Waiting for application to start..."
+          for i in $(seq 1 60); do
+            if curl -s http://localhost:8080/api/hello > /dev/null 2>&1; then
+              echo "Application is ready!"
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "Application failed to start within 60 seconds"
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Run integration tests
+        run: mvn -pl integration-tests test || true
+
+      - name: Stop application
+        if: always()
+        run: |
+          pkill -f 'spring-boot:run' || true
+          pkill -f 'BackendProtocolsDemoApplication' || true
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Integration Test Results
+          path: '**/target/surefire-reports/TEST-*.xml'
+          reporter: java-junit
+          fail-on-error: true
+
+      - name: Load test report history
+        uses: actions/checkout@v4
+        if: always()
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Build Allure test report
+        uses: simple-elf/allure-report-action@v1.10
+        if: always()
+        with:
+          gh_pages: gh-pages
+          allure_history: allure-history
+          allure_results: integration-tests/target/allure-results
+
+      - name: Publish Allure report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        if: always()
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
